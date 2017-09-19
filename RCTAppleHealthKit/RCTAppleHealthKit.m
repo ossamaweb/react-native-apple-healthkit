@@ -207,17 +207,28 @@ RCT_EXPORT_METHOD(getInfo:(NSDictionary *)input callback:(RCTResponseSenderBlock
             callback(@[RCTMakeError(@"at least 1 read or write permission must be set in options.permissions", nil, nil)]);
             return;
         }
-
         [self.healthStore requestAuthorizationToShareTypes:writeDataTypes readTypes:readDataTypes completion:^(BOOL success, NSError *error) {
             if (!success) {
                 NSString *errMsg = [NSString stringWithFormat:@"Error with HealthKit authorization: %@", error];
                 NSLog(errMsg);
+                NSLog(@"PERMISSIONS DENIED: %@", error);
                 callback(@[RCTMakeError(errMsg, nil, nil)]);
                 return;
             } else {
-                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                    callback(@[[NSNull null], @true]);
-                });
+                HKQuantityType *stepsType = [HKQuantityType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount];
+                HKAuthorizationStatus status = [_healthStore authorizationStatusForType:stepsType];
+                
+                if( status == HKAuthorizationStatusSharingAuthorized) {
+                    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                        callback(@[[NSNull null], @true]);
+                    });
+                } else {
+                    callback(@[RCTMakeError(@"permissions denied", nil, nil)]);
+                    return;
+                }
+                
+                
+                
             }
         }];
     } else {
